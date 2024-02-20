@@ -1,0 +1,779 @@
+---
+title: "Giant Kelp Microbiome Analysis"
+author: "Sevan Esaian"
+date: "10/25/2021"
+output: html_document
+---
+## The purpose of this analysis is to determine whether or not water and giant kelp microbiome data looks substantially different if I include the controls in the rarefaction step.
+
+## Import the raw read file. Rarefy the raw read file.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readr)
+RawReads <- read_csv("Taxonomy.RAWCOUNTS.ALLSAMPLES.wouteuks.woutchlor.woutmitoch.by.ASV.csv")
+View(RawReads)
+
+library(tidyverse)
+RawReads %>% remove_rownames %>% column_to_rownames(var="UniqueID")
+RawReads2 <- column_to_rownames(RawReads, "UniqueID")
+View(RawReads2)
+
+library(permute)
+library(lattice)
+library(vegan)
+
+#Remove the first column of RawReads in order to run the rowSums function properly.
+specnumber(RawReads2)
+sp_abund <- rowSums(RawReads2)
+raremin <- min(rowSums(RawReads2))
+sRare <- rrarefy(RawReads2, raremin)
+View(sRare)
+
+write.csv(sRare, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21\\rarefied.ALLSAMPLES.wouteuks.woutchlor.woutmit.csv",row.names=TRUE)
+
+```
+
+## Now I want to run an NMDS.
+
+
+```{}
+rar_asv <- read_csv("rarefied.ALLSAMPLES.wouteuks.woutchlor.woutmit.csv")
+View(rar_asv)
+
+rar_asv %>% remove_rownames %>% column_to_rownames(var="UniqueID")
+rar_asv2 <- column_to_rownames(rar_asv, "UniqueID")
+
+asv_NMDS <- metaMDS(rar_asv2)
+View(asv_NMDS)
+data.scores <- as.data.frame(scores(asv_NMDS))
+View(data.scores)
+
+write.csv(data.scores, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21\\NMDS.ALLSAMPLES.wouteuks.woutchlor.woutmit.csv",row.names=TRUE)
+
+```
+
+## Visualizing NMDS Plots
+## Unique ID 179 and Unique ID 105 will be removed
+
+
+
+```{}
+NMDS <- read_csv("NMDS.ALLSAMPLES.wouteuks.woutchlor.woutmit.csv")
+View(NMDS)
+ggplot(NMDS, aes(NMDS1,NMDS2, color=ControlType)) +
+  geom_point(aes(shape=ControlType, size=0.5)) +
+  theme_minimal()
+  
+ggplot(NMDS,aes(NMDS1,NMDS2, color=sampling)) +
+  geom_point(aes(shape=depth, size=0.5))
+  
+##No Timepoint 0
+NMDS_noT0 <- subset(NMDS, sampling == "T1" | sampling == "T2" | sampling == "T2CF" | sampling == "T2SA")
+View(NMDS_noT0)
+
+ggplot(NMDS_noT0,aes(NMDS1,NMDS2, color=ControlType)) +
+  geom_point(aes(size=0.6)) +
+  theme_bw() +
+  ggtitle("Communities on Blades and in the Water Column") +
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20)) +
+  xlim(-0.35, 0.45) + ylim(-0.4, 0.35) 
+  
+##Just Timepoint 2 CF
+NMDS_T2CF <- subset(NMDS, sampling=="T2CF")
+P1 <- ggplot(NMDS_T2CF,aes(NMDS1,NMDS2, color=depth)) +
+  geom_point(aes(shape=depth, size=0.5)) +
+  theme_bw() +
+  ggtitle("Communities on Mature Blades at Different Depths") +
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20)) +
+  xlim(-0.35, 0.45) + ylim(-0.4, 0.35) 
+  
+##Just Timepoint 1
+NMDS_T1 <- subset(NMDS, sampling == "T1" & ControlType =="kelp")
+P1 <- ggplot(NMDS_T1,aes(NMDS1,NMDS2, color=depth)) +
+  geom_point(aes(shape=depth, size=0.5)) +
+  theme_bw() +
+  ggtitle("T1 - Communities on Immature Blades at Different Depths") +
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20)) +
+  xlim(-0.35, 0.45) + ylim(-0.4, 0.35) 
+  
+##Just Timepoint 2 SA
+NMDS_T2SA <- subset(NMDS, ControlType == "kelp" & sampling=="T2SA")
+P3 <- ggplot(NMDS_T2SA, aes(NMDS1,NMDS2, color=depth)) +
+  geom_point(aes(shape=depth, size=0.5)) +
+  theme_bw() +
+  ggtitle("T2 - Communities on Immature Blades at Different Depths") +
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20)) +
+  xlim(-0.35, 0.45) + ylim(-0.4, 0.35) 
+  
+NMDS_JustKelp <- subset(NMDS, ControlType == "kelp" & sampling =="T1" | sampling == "T2CF" | sampling=="T2SA")
+View(NMDS_JustKelp)
+
+P4 <- ggplot(NMDS_JustKelp, aes(NMDS1,NMDS2, color=sampling)) +
+  geom_point(aes(shape=depth, size=0.5, alpha=0.6)) +
+  theme_bw() +
+  ggtitle("Shifts in Microbiome Community Composition") +
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20)) +
+  xlim(-0.35, 0.45) + ylim(-0.4, 0.35) 
+
+library(gridExtra)
+grid.arrange(P1, P2, P3, P4, ncol=2)
+```
+
+##In addition to removing 179 and 105, I removed 03, 115, 119, 167, 182, 21, 38, 86
+
+##Now I want to compute % relative abundance for visualization purposes
+##There is a problem with this analysis. Anna's ASV output was 3841 across all samples combined. 
+##What I'm going to do is re-do this analysis but exclude the samples mentioned above from the jump. Let's see how it plays out.
+
+```{}
+View(rar_asv2)
+rar_asv2$SumPerUI <- rowSums(rar_asv2[,1:7823])
+View(rar_asv2$SumPerUI)
+rel_asv2_abund <- rar_asv2
+
+rel_abund <- rar_asv2 %>% 
+  # calculate relative abundance with mutate + across
+  # this divides every number in a column that starts with "asv" by the number in the totalreads column
+  mutate(across(starts_with("ASV"), ~ . / 7544))
+View(rel_abund)
+```
+
+##ReTry Rarefying the data but first excluding all the raw reads for the useless samples that had low abundances.
+
+```{}
+
+RawReadsReTry <- read_csv("Taxonomy.RAWCOUNTS.EXCLSomeASVs.wouteuks.woutchlor.woutmitoch.by.ASV.csv")
+View(RawReadsReTry)
+
+
+RawReadsReTry %>% remove_rownames %>% column_to_rownames(var="UniqueID")
+RawReadsReTry2 <- column_to_rownames(RawReadsReTry, "UniqueID")
+View(RawReadsReTry2)
+
+
+#Remove the first column of RawReads in order to run the rowSums function properly.
+specnumber(RawReadsReTry2)
+sp_abund <- rowSums(RawReadsReTry2)
+raremin <- min(rowSums(RawReadsReTry2))
+sRare <- rrarefy(RawReadsReTry2, raremin)
+View(sRare)
+
+write.csv(sRare, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21\\rarefied.retry.EXCLSomeASVs.wouteuks.woutchlor.woutmit.csv",row.names=TRUE)
+```
+
+##Now I will try the NMDS for this analysis
+
+```{}
+rar_asv_retry <- read_csv("rarefied.EXCLSomeASVs.wouteuks.woutchlor.woutmit.csv")
+View(rar_asv_retry)
+
+rar_asv_retry %>% remove_rownames %>% column_to_rownames(var="UniqueID")
+rar_asv2_retry <- column_to_rownames(rar_asv_retry, "UniqueID")
+
+asv_NMDS_retry <- metaMDS(rar_asv2_retry)
+View(asv_NMDS_retry)
+data.scores_retry <- as.data.frame(scores(asv_NMDS_retry))
+View(data.scores_retry)
+
+write.csv(data.scores_retry, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21\\NMDS.retryEXCLSomeASVs.wouteuks.woutchlor.woutmit.csv",row.names=TRUE)
+```
+
+##Plotting the NMDS to compare water and kelp
+
+```{}
+NMDS_retry <- read_csv("NMDS.EXCLSomeASVs.wouteuks.woutchlor.woutmit.csv")
+View(NMDS_retry)
+ggplot(NMDS_retry, aes(NMDS1,NMDS2, color=sampling)) +
+  geom_point(aes(shape=depth, size=0.5)) +
+  theme_minimal()
+  
+##Subset out just T2CF
+NMDS_T2CF_retry <- subset(NMDS_retry, sampling=="T2CF")
+ggplot(NMDS_T2CF_retry, aes(NMDS1,NMDS2, color=depth)) +
+  geom_point(aes(shape=depth, size=0.5)) +
+  theme_minimal()+
+  ggtitle("T2 Mature Microbiome Composition")+
+  xlim(-1.1, 0.8) + ylim(-0.75, 1.03) +
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20))
+  
+##Subset out just T1
+NMDS_T1_retry <- subset(NMDS_retry, sampling=="T1")
+ggplot(NMDS_T1_retry, aes(NMDS1,NMDS2, color=depth)) +
+  geom_point(aes(shape=depth, size=0.5)) +
+  theme_minimal() +
+  ggtitle("T1 Juvenile Microbiome Composition")+
+  xlim(-1.1, 0.8) + ylim(-0.75, 1.03) +
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20))
+  
+##Subset out just T2SA
+NMDS_T2SA_retry <- subset(NMDS_retry, sampling=="T2SA")
+ggplot(NMDS_T2SA_retry, aes(NMDS1,NMDS2, color=depth)) +
+  geom_point(aes(shape=depth, size=0.5)) +
+  theme_minimal()+
+  ggtitle("T2 Juvenile Microbiome Composition")+
+  xlim(-1.1, 0.8) + ylim(-0.75, 1.03) +
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20))
+  
+##Subset out T1, T2CF, and T2SA
+NMDS_justblades_noT0_retry <- subset(NMDS_retry, sampling=="T1" | sampling=="T2CF" | sampling=="T2SA")
+ggplot(NMDS_justblades_noT0_retry, aes(NMDS1,NMDS2, color=sampling)) +
+  geom_point(aes(shape=depth, size=0.5), alpha=0.5) +
+  theme_bw() +
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20)) +
+  xlim(-1.1, 0.8) + ylim(-0.75, 1.03) +
+  ggtitle("Shifts in Microbiome Composition")
+  
+
+```
+
+##Quantify percent relative abundance 
+
+```{}
+relabund_retry <- read_csv("rarefied.retry.EXCLSomeASVs.wouteuks.woutchlor.woutmit.csv")
+View(relabund_retry)
+relabund_retry$SumPerUniqueID <- rowSums(relabund_retry[,2:7824])
+View(relabund_retry$SumPerUniqueID)
+
+library(dplyr)
+rel_abund_retry_calc <- relabund_retry %>% 
+  mutate(across(starts_with("ASV"), ~ . / 6685))
+  
+View(rel_abund_retry_calc)
+write.csv(rel_abund_retry_calc, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/NMDS Plots ReTry\\relabund.retry.EXCLSomeASVs.wouteuks.woutchlor.woutmit.csv",row.names=TRUE)
+```
+
+##Install codyn and run through a tutorial before using it so that you understand the data structure properly
+
+```{}
+install.packages("codyn")
+library(codyn)
+?community_structure
+
+data(pplots)
+View(pplots)
+#Example with both time and replicates
+df <- subset(pplots, plot == 25 | plot == 6)
+View(df)
+df_evar_comm_str <- community_structure(df, 
+                    time.var="year", 
+                    replicate.var = "plot", 
+                    abundance.var = "relative_cover") # for Evar evenness measure
+View(df_evar_comm_str)         
+
+df <- subset(pplots, plot == 25 | plot == 6)
+df_sim_comm_str <- community_structure(df,
+                    time.var="year", 
+                    replicate.var = "plot", 
+                    abundance.var = "relative_cover", 
+                    metric = "SimpsonEvenness") # for Simpson's evenness measure
+View(df_sim_comm_str)
+                    
+
+#Example with no replicates
+df <- subset(pplots, plot == 25)
+df2<-community_structure(df, 
+                    time.var="year", 
+                    abundance.var = "relative_cover",
+                    metric = "EQ") # for EQ evenness measure
+View(df2)           
+
+#Example with only a single time point and no replicates
+df <- subset(pplots, plot == 25 & year == 2002)
+df2 <- community_structure(df, 
+                    abundance.var = "relative_cover") # for Evar evenness measure
+View(df2)
+?community_diversity
+
+
+?abundance_change
+df <- subset(pplots, plot == 25)
+abundance_change(df = df,
+                 species.var = "species",
+                 abundance.var = "relative_cover",
+                 time.var = "year")
+
+```
+
+##Conduct some data wrangling in order to get the data structure into a format that can be used on codyn.
+
+```{}
+rarcounts_with_labels <- read_csv("rarefied.retry.EXCLSomeASVs.wouteuks.woutchlor.woutmit.csv")
+View(rarcounts_with_labels)
+rar_counts_with_labels_justblades <- subset(rarcounts_with_labels, sampling=="T1" | sampling=="T2CF" | sampling=="T2SA")
+View(rar_counts_with_labels_justblades)
+
+rarcounts_for_gather <- gather(rar_counts_with_labels_justblades, "ASV", "perc_relabund", 4:7826)
+View(rarcounts_for_gather)
+
+rarcounts_Simp_Evenness <- community_structure(rarcounts_for_gather,
+  #time.var="sampling",
+  time.var="UniqueID",
+ # replicate.var="depth",
+  abundance.var ="perc_relabund",
+  metric = "SimpsonEvenness")
+View(rarcounts_Simp_Evenness)
+
+write.csv(rarcounts_Simp_Evenness, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/NMDS Plots ReTry\\SimpsonEvenness.perSample.wouteuks.woutchlor.woutmit.csv",row.names=TRUE)
+
+rarcounts_div <- community_diversity(rarcounts_for_gather,
+  #time.var="sampling",
+  time.var="UniqueID",
+  #replicate.var="depth",
+  abundance.var ="perc_relabund")
+View(rarcounts_div)
+
+write.csv(rarcounts_div, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/NMDS Plots ReTry\\ShannonDiv.perSample.wouteuks.woutchlor.woutmit.csv",row.names=TRUE)
+
+relabund_change <- abundance_change(relabund_for_gather,
+  species.var = "ASV",
+  abundance.var ="perc_relabund",
+  replicate.var = "depth",
+  time.var = "sampling")
+View(relabund_change)
+```
+
+##Ranked abundance curve tutorial
+```{}
+View(pplots)
+df <- subset(pplots, year == 2002 & block < 3)
+View(df)
+RAC_diff <- RAC_difference(df = df,
+               species.var = "species",
+               abundance.var = "relative_cover",
+               treatment.var = 'treatment',
+               block.var = "block",
+               replicate.var = "plot")
+View(RAC_diff)
+
+?RAC_change
+df <- subset(pplots, plot == 25)
+View(df)
+RAC_ch <- RAC_change(df = df,
+           species.var = "species",
+           abundance.var = "relative_cover",
+           time.var = "year")
+View(RAC_ch)
+
+?curve_change
+df <- subset(pplots, plot == 25)
+curv_ch <- curve_change(df = df,
+           species.var = "species",
+           abundance.var = "relative_cover",
+           time.var = "year")
+View(curv_ch)
+
+?community_structure
+```
+
+##Biodiversity package for rank abundance curves
+```{}
+install.packages("BiodiversityR")
+library(BiodiversityR)
+
+?rankabundance
+data(dune.env)
+View(dune.env)
+data(dune)
+View(dune)
+
+RankAbun.1 <- rankabundance(dune)
+RankAbun.1
+rankabunplot(RankAbun.1, scale='abundance', addit=FALSE, specnames=c(1,2,3))
+rankabunplot(RankAbun.1, scale='logabun', addit=FALSE, specnames=c(1:30), 
+    srt=45, ylim=c(1,100))
+rankabuncomp(dune, y=dune.env, factor='Management', 
+    scale='proportion', legend=FALSE)
+    
+## Not run: 
+# ggplot2 plotting method
+
+# Only label the two most abundant species
+RA.data <- rankabuncomp(dune, y=dune.env, factor='Management', 
+    return.data=TRUE, specnames=c(1:2), legend=FALSE)
+
+library(ggplot2)
+library(ggrepel)
+
+# possibly need for extrafont::loadfonts(device="win") to have Arial
+# as alternative, use library(ggThemeAssist)
+BioR.theme <- theme(
+        panel.background = element_blank(),
+        panel.border = element_blank(),
+        panel.grid = element_blank(),
+        axis.line = element_line("gray25"),
+        text = element_text(size = 12, family="Arial"),
+        axis.text = element_text(size = 10, colour = "gray25"),
+        axis.title = element_text(size = 14, colour = "gray25"),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 14),
+        legend.key = element_blank())
+View(RA.data)
+plotgg1 <- ggplot(data=RA.data, aes(x = rank, y = abundance)) + 
+    scale_x_continuous(expand=c(0, 1), sec.axis = dup_axis(labels=NULL, name=NULL)) +
+    scale_y_continuous(expand=c(0, 1), sec.axis = dup_axis(labels=NULL, name=NULL)) +
+    geom_line(aes(colour=Grouping), size=1) +
+    geom_point(aes(colour=Grouping, shape=Grouping), size=5, alpha=0.7) +
+    geom_text_repel(data=subset(RA.data, labelit == TRUE), 
+        aes(colour=Grouping, label=species), 
+        angle=45, nudge_x=1, nudge_y=1, show.legend=FALSE) +
+    BioR.theme +
+    scale_color_brewer(palette = "Set1") +
+    labs(x = "rank", y = "abundance", colour = "Management", shape = "Management")
+
+plotgg1
+  
+# use different facets
+# now label first 10 species
+RA.data <- rankabuncomp(dune, y=dune.env, factor='Management', 
+    return.data=TRUE, specnames=c(1:10), legend=FALSE)
+
+plotgg2 <- ggplot(data=RA.data, aes(x = rank, y = abundance)) + 
+    scale_x_continuous(expand=c(0, 1), sec.axis = dup_axis(labels=NULL, name=NULL)) +
+    scale_y_continuous(expand=c(0, 1), sec.axis = dup_axis(labels=NULL, name=NULL)) +
+    geom_line(aes(colour=Grouping), size=1) +
+    geom_point(aes(colour=Grouping), size=5, alpha=0.7) +
+    geom_text_repel(data=subset(RA.data, labelit == TRUE), 
+        aes(label=species), 
+        angle=45, nudge_x=1, nudge_y=1, show.legend=FALSE) +
+    BioR.theme +
+    scale_color_brewer(palette = "Set1") +
+    facet_wrap(~ Grouping) +
+    labs(x = "rank", y = "abundance", colour = "Management")
+plotgg2
+```
+
+##Follow the example above and make your own rank abundance curve
+```{}
+ASV_Rank_Abundance_Env <- read_csv("~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves/ASV Rank Abundance Env.csv")
+View(ASV_Rank_Abundance_Env)
+ASV_Rank_Abundance_Env <- as.data.frame(ASV_Rank_Abundance_Env)
+
+ASV_Rank_Abundance_Setup <- read_csv("~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves/ASV Rank Abundance Setup.csv")
+View(ASV_Rank_Abundance_Setup)
+ASV_Rank_Abundance_Setup <- as.data.frame(ASV_Rank_Abundance_Setup)
+
+RankAbun.1 <- rankabundance(ASV_Rank_Abundance_Setup)
+View(RankAbun.1)
+RankAbun.1 <- as.data.frame(RankAbun.1)
+RankAbunOneHund <- subset(RankAbun.1, rank < 101)
+View(RankAbunOneHund)
+rankabunplot(RankAbunOneHund, scale='abundance', addit=FALSE, specnames=c(1,2,3))
+rankabunplot(RankAbunOneHund, scale='logabun', addit=FALSE, specnames=c(1:30), 
+    srt=45, ylim=c(1,100))
+
+```
+
+##Making BarPlots of Diversity Metrics
+```{}
+div_index <- read_csv("Diversity Index rarefied counts no mit no chl no water no T0.csv")
+View(div_index)
+
+div_index$depth <- factor(div_index$depth, levels=c("bottom", "middle", "surface"))
+div_index$sampling <- factor(div_index$sampling, levels=c("T2SA", "T2CF", "T1"))
+
+ggplot(div_index, aes(x=depth, y=avg_richness, fill=sampling)) +
+  geom_bar(stat="identity", color="black",
+    position=position_dodge()) +
+  geom_errorbar(aes(ymin=avg_richness-stdev_richness, ymax=avg_richness+stdev_richness), width=.2,
+    position=position_dodge(.9)) +
+  theme_classic() +
+  coord_flip() +
+  ylab("Average ASV Richness") + xlab("Blade Depth") +
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20))
+  
+ggplot(div_index, aes(x=depth, y=avg_sim_evenness, fill=sampling)) +
+  geom_bar(stat="identity", color="black",
+    position=position_dodge()) +
+  geom_errorbar(aes(ymin=avg_sim_evenness-stdev_sim_evenness, ymax=avg_sim_evenness+stdev_sim_evenness), width=.2,
+    position=position_dodge(.9)) +
+  theme_classic() +
+  coord_flip() +
+  ylab("Average Simpsons Evenness") + xlab("Blade Depth") +
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20))
+
+ggplot(div_index, aes(x=depth, y=avg_shannon_rich, fill=sampling)) +
+  geom_bar(stat="identity", color="black",
+    position=position_dodge()) +
+  geom_errorbar(aes(ymin=avg_shannon_rich-stdev_shannon_rich, ymax=avg_shannon_rich+stdev_shannon_rich), width=.2,
+    position=position_dodge(.9)) +
+  theme_classic() +
+  coord_flip() +
+  ylab("Average Shannon Richness") + xlab("Blade Depth") +
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20))
+  
+  
+```
+
+##Making rank abundance curves per sample type
+```{}
+##T2CF Surface Blades
+rar_all <- read_csv("rarefied.retry.EXCLSomeASVs.wouteuks.woutchlor.woutmit.csv")
+View(rar_all)
+rarT2CF.surface <- subset(rar_all, sampling=="T2CF" & depth=="surface")
+View(rarT2CF.surface)
+rarT2CF.surface.data <- rarT2CF.surface[, -c (1:3)]
+rarT2CF.surface.data <- as.data.frame(rarT2CF.surface.data)
+rankabun.rarT2CF.data <- rankabundance(rarT2CF.surface.data)
+View(rankabun.rarT2CF.data)
+write.csv(rankabun.rarT2CF.data, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves\\T2CF rank abundance.csv",row.names=TRUE)
+
+##subset top 50 asv's and ggplot them
+rankabun.rarT2CF.data <- as.data.frame(rankabun.rarT2CF.data)
+rankabund.rarT2CF.data.surface.top50 <- subset(rankabun.rarT2CF.data, rank < 51)
+View(rankabund.rarT2CF.data.surface.top50)
+ggplot(rankabund.rarT2CF.data.surface.top50, aes(x=rank, y=abundance)) +
+  geom_point(size=5) + theme_classic()
+
+##T2CF Middle Blades
+rarT2CF.middle <- subset(rar_all, sampling=="T2CF" & depth=="middle")
+View(rarT2CF.middle)
+rarT2CF.middle.data <- rarT2CF.middle[, -c (1:3)]
+rarT2CF.middle.data <- as.data.frame(rarT2CF.middle.data)
+rankabun.rarT2CF.middledata <- rankabundance(rarT2CF.middle.data)
+View(rankabun.rarT2CF.middledata)
+write.csv(rankabun.rarT2CF.middledata, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves\\T2CF middle rank abundance.csv",row.names=TRUE)
+
+##T2CF Bottom Blades
+rarT2CF.bottom <- subset(rar_all, sampling=="T2CF" & depth=="bottom")
+View(rarT2CF.bottom)
+rarT2CF.bottom.data <- rarT2CF.bottom[, -c (1:3)]
+rarT2CF.bottom.data <- as.data.frame(rarT2CF.bottom.data)
+rankabun.rarT2CF.bottomdata <- rankabundance(rarT2CF.bottom.data)
+View(rankabun.rarT2CF.bottomdata)
+write.csv(rankabun.rarT2CF.bottomdata, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves\\T2CF bottom rank abundance.csv",row.names=TRUE)
+
+T2CF.rankabundance <- read_csv("~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves/Rank Abundance Curve All T2CF.csv")
+View(T2CF.rankabundance)
+
+ggplot(T2CF.rankabundance, aes(x=rank, y=abundance, color=ASV, shape=depth)) +
+  geom_point(size=4, alpha=0.3) +
+  theme_classic() +
+  xlab("Rank") + ylab("Abundance") + 
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20)) +
+  theme(legend.position="none") +
+  ggtitle("Timepoint 2 Mature Blade Ranked Abundances per Depth")
+
+```
+
+##GGTern Attempt for Ternary Plots
+```{}
+
+library(ggtern)
+?ggtern
+
+T2CF_Ternary_Data <- read_csv("~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Ternary Plot Setup/T2CF Ternary Plot Top 50 from Rank Abundance.csv")
+View(T2CF_Ternary_Data)
+
+ggtern(T2CF_Ternary_Data, aes(x=surface, y=middle, z=bottom)) + geom_point(aes(color=Class, size=totalsum, alpha=0.8)) +
+  theme_bvbg() + 
+  scale_size(range=c(1,10))
+```
+
+##T1 ranked abundance and ternary plot setup below
+```{}
+rarT1.surface <- subset(rar_all, sampling=="T1" & depth=="surface")
+View(rarT1.surface)
+rarT1.middle <- subset(rar_all, sampling=="T1" & depth=="middle")
+View(rarT1.middle)
+rarT1.middle <- head(rarT1.middle, -2)
+View(rarT1.middle)
+rarT1.bottom <- subset(rar_all, sampling=="T1" & depth=="bottom")
+View(rarT1.bottom)
+rarT1.bottom <- head(rarT1.bottom, -2)
+View(rarT1.bottom)
+
+rarT1.surface.data <- rarT1.surface[, -c (1:3)]
+rarT1.surface.data <- as.data.frame(rarT1.surface.data)
+rankabun.rarT1.data <- rankabundance(rarT1.surface.data)
+View(rankabun.rarT1.data)
+write.csv(rankabun.rarT1.data, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves\\T1 surface rank abundance.csv",row.names=TRUE)
+
+rarT1.middle.data <- rarT1.middle[, -c (1:3)]
+rarT1.middle.data <- as.data.frame(rarT1.middle.data)
+rankabun.rarT1.data <- rankabundance(rarT1.middle.data)
+View(rankabun.rarT1.data)
+write.csv(rankabun.rarT1.data, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves\\T1 middle rank abundance.csv",row.names=TRUE)
+
+rarT1.bottom.data <- rarT1.bottom[, -c (1:3)]
+rarT1.bottom.data <- as.data.frame(rarT1.bottom.data)
+rankabun.rarT1.data <- rankabundance(rarT1.bottom.data)
+View(rankabun.rarT1.data)
+write.csv(rankabun.rarT1.data, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves\\T1 bottom rank abundance.csv",row.names=TRUE)
+
+T1rankabund.data <- read_csv("~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves/Rank Abundance Curve T1 all over one percent.csv")
+View(T1rankabund.data)
+
+ggplot(data=T1rankabund.data, aes(x=rank, y=abundance, color=ASV, shape=depth, alpha=0.5)) + 
+  geom_point(size=4) +
+  theme_classic() +
+  xlab("Rank") + ylab("Abundance") + 
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20)) +
+  theme(legend.position="none") +
+  ggtitle("Timepoint 1 Juvenile Blade Ranked Abundances per Depth")
+  
+T1_Ternary_Data <- read_csv("~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Ternary Plot Setup/T1 Ternary Plot Top 50 from Rank Abundance.csv")
+View(T1_Ternary_Data)
+
+ggtern(T1_Ternary_Data, aes(x=surface, y=middle, z=bottom)) + geom_point(aes(color=Class, size=totalsum, alpha=0.8)) +
+  theme_bvbg() + 
+  scale_size(range=c(1,10))
+```
+
+##T2SA Ranked Abundance Curve and Ternary Plot
+```{}
+rarT2SA.surface <- subset(rar_all, sampling=="T2SA" & depth=="surface")
+View(rarT2SA.surface)
+rarT2SA.middle <- subset(rar_all, sampling=="T2SA" & depth=="middle")
+View(rarT2SA.middle)
+rarT2SA.bottom <- subset(rar_all, sampling=="T2SA" & depth=="bottom")
+View(rarT2SA.bottom)
+
+rarT2SA.surface.data <- rarT2SA.surface[, -c (1:3)]
+rarT2SA.surface.data <- as.data.frame(rarT2SA.surface.data)
+rankabun.rarT2SA.data <- rankabundance(rarT2SA.surface.data)
+View(rankabun.rarT2SA.data)
+write.csv(rankabun.rarT2SA.data, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves\\T2SA surface rank abundance.csv",row.names=TRUE)
+
+rarT2SA.middle.data <- rarT2SA.middle[, -c (1:3)]
+rarT2SA.middle.data <- as.data.frame(rarT2SA.middle.data)
+rankabun.rarT2SA.middle.data <- rankabundance(rarT2SA.middle.data)
+View(rankabun.rarT2SA.middle.data)
+write.csv(rankabun.rarT2SA.middle.data, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves\\T2SA middle rank abundance.csv",row.names=TRUE)
+
+rarT2SA.bottom.data <- rarT2SA.bottom[, -c (1:3)]
+rarT2SA.bottom.data <- as.data.frame(rarT2SA.bottom.data)
+rankabun.rarT2SA.bottom.data <- rankabundance(rarT2SA.bottom.data)
+View(rankabun.rarT2SA.bottom.data)
+write.csv(rankabun.rarT2SA.bottom.data, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves\\T2SA bottom rank abundance.csv",row.names=TRUE)
+
+T2SArankabund.data <- read_csv("~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Rank Abundance Curves/Rank Abundance Curve T2SA all over one percent.csv")
+View(T2SArankabund.data)
+
+ggplot(data=T2SArankabund.data, aes(x=rank, y=abundance, color=ASV, shape=depth, alpha=0.5)) + 
+  geom_point(size=4) +
+  theme_classic() +
+  xlab("Rank") + ylab("Abundance") + 
+  theme(plot.title=element_text(hjust=0.5), text=element_text(size=20)) +
+  theme(legend.position="none") +
+  ggtitle("Timepoint 2 Juvenile Blade Ranked Abundances per Depth")
+  
+T2SA_Ternary_Data <- read_csv("~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Ternary Plot Setup/T2SA Ternary Plot Top 50 from Rank Abundance.csv")
+View(T2SA_Ternary_Data)
+
+ggtern(T2SA_Ternary_Data, aes(x=surface, y=middle, z=bottom)) + geom_point(aes(color=Class, size=totalsum, alpha=0.8)) +
+  theme_bvbg() + 
+  scale_size(range=c(1,10))
+```
+
+##I set the analysis up wrong because the rankedabundance function takes the sum rather than the average.
+##I have to run the average function beforehand. Also, ASV is not going to give us much in the way of actual > 1% RA.
+```{}
+```
+
+##The following was a shitty attempt at Network Analysis
+```{}
+# Install Required packages
+install.packages("igraph")
+install.packages("qgraph")
+install.packages("vegan")
+install.packages("MCL")
+# Install SpiecEasi package
+install.packages("devtools")
+library(devtools)
+install_github("zdk123/SpiecEasi")
+install.packages("Matrix")
+library(Matrix)
+install.packages("glmnet")
+library(glmnet)
+
+library(igraph)
+library(qgraph)
+library(vegan)
+library(MCL)
+library(SpiecEasi)
+
+# Load OTU table
+data("amgut1.filt")
+View(amgut1.filt)
+# Change row and column names to a more readable format
+colnames(amgut1.filt) <- sapply(1:ncol(amgut1.filt),
+  function(x) paste("OTU", x, sep = "_"))
+
+write.csv(amgut1.filt, "~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Network Analysis\\microbiome_sample_dataset.csv",row.names=TRUE)
+
+amgut1.filt <- read_csv("~/Kelp/Kelp_Data/16S_Library/Rarefy Using All Samples 10-25-21/Network Analysis/Network Tutorial Data.csv")
+View(amgut1.filt)
+amgut1.filt %>% remove_rownames %>% column_to_rownames(var="Samples")
+amgut1.filt <- column_to_rownames(amgut1.filt, "Samples")
+
+otu.relative <- amgut1.filt / rowSums(amgut1.filt)
+View(otu.relative)
+
+# Create dissimilarity matrix
+distances <- vegdist(t(otu.relative),
+method = "bray")
+
+# Convert distance object to a matrix
+diss.mat <- as.matrix(distances)
+diss.cutoff <- 0.6
+diss.adj <- ifelse(diss.mat <= diss.cutoff, 1, 0)
+# Construct microbiome network from adjacency matrix
+diss.net <- graph.adjacency(diss.adj,
+mode = "undirected",
+diag = FALSE)
+
+cor.matrix <- cor(otu.relative, method = "pearson")
+# Convert correlation matrix to binary adjacency matrix
+cor.cutoff <- 0.3
+cor.adj <- ifelse(abs(cor.matrix) >= cor.cutoff, 1, 0)
+# Construct microbiome network from adjacency matrix
+cor.net <- graph.adjacency(cor.adj,
+mode = "undirected",
+diag = FALSE)
+
+# SparCC network
+sparcc.matrix <- sparcc(amgut1.filt)
+sparcc.cutoff <- 0.3
+sparcc.adj <- ifelse(abs(sparcc.matrix$Cor) >= sparcc.cutoff, 1, 0)
+# Add OTU names to rows and columns
+rownames(sparcc.adj) <- colnames(amgut1.filt)
+colnames(sparcc.adj) <- colnames(amgut1.filt)
+# Build network from adjacency
+sparcc.net <- graph.adjacency(sparcc.adj, mode = "undirected", diag = FALSE)
+# SPIEC-EASI network
+SpiecEasi.matrix <- spiec.easi(amgut1.filt,
+method = 'glasso',
+lambda.min.ratio = 1e-2,
+nlambda = 20,
+icov.select.params = list(rep.num = 50))
+
+```
+ ##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
+```{}
+install.packages("NetCoMi")
+install.packages("remotes")
+library(remotes)
+install.packages("BiocManager")
+install.packages("devtools")
+library(BiocManager)
+devtools::install_github("r-lib/remotes")
+devtools::install_github("stefpeschel/NetCoMi", dependencies = TRUE,
+                         repos = c("https://cloud.r-project.org/",
+                                   BiocManager::repositories()))
+install.packages("githubinstall")
+library(githubinstall)
+library(usethis)
+library(devtools)
+git_sitrep()
+usethis::create_github_token()
+gitcreds::gitcreds_set(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)
+credentials::git_credentials_forget()
+credentials::set_github_pat(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)
+
+devtools::install_github("stefpeschel/NetCoMi", dependencies = TRUE,  repos = c("https://cloud.r-project.org/",       BiocManager::repositories()))
+
+library(SpiecEasi)
+library(NetCoMi)
+?netConstruct
+```
